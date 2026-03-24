@@ -10,62 +10,62 @@ export default function ClearanceView({ assets, isEmailConnected }: { assets: As
   const rejectedAssets = assets.filter(a => a.workflow_stage === "Rejected");
 
   return (
-    <div className="space-y-8">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div className="space-y-10">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white/5 border border-white/10 rounded-2xl p-6"
+          className="glass-card p-8 rounded-2xl"
         >
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-yellow-500/10 rounded-lg">
-              <Clock className="w-5 h-5 text-yellow-400" />
+          <div className="flex items-center gap-4 mb-6">
+            <div className="p-3 bg-yellow-400/20 rounded-xl">
+              <Clock className="w-6 h-6 text-yellow-600" />
             </div>
-            <h3 className="text-sm font-medium text-white/60 uppercase tracking-wider">Awaiting Clearance</h3>
+            <h3 className="text-xs font-bold text-black/40 uppercase tracking-widest">Awaiting Clearance</h3>
           </div>
-          <p className="text-3xl font-light">{pendingAssets.length}</p>
-          <p className="text-xs text-white/40 mt-2">Assets requiring outreach or follow-up</p>
+          <p className="text-5xl font-bold text-black">{pendingAssets.length}</p>
+          <p className="text-xs text-black/40 mt-3 font-medium">Assets requiring outreach or follow-up</p>
         </motion.div>
 
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white/5 border border-white/10 rounded-2xl p-6"
+          className="glass-card p-8 rounded-2xl"
         >
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-green-500/10 rounded-lg">
-              <CheckCircle2 className="w-5 h-5 text-green-400" />
+          <div className="flex items-center gap-4 mb-6">
+            <div className="p-3 bg-green-500/10 rounded-xl">
+              <CheckCircle2 className="w-6 h-6 text-green-600" />
             </div>
-            <h3 className="text-sm font-medium text-white/60 uppercase tracking-wider">Cleared</h3>
+            <h3 className="text-xs font-bold text-black/40 uppercase tracking-widest">Cleared</h3>
           </div>
-          <p className="text-3xl font-light">{clearedAssets.length}</p>
-          <p className="text-xs text-white/40 mt-2">Ready for production use</p>
+          <p className="text-5xl font-bold text-black">{clearedAssets.length}</p>
+          <p className="text-xs text-black/40 mt-3 font-medium">Ready for production use</p>
         </motion.div>
 
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white/5 border border-white/10 rounded-2xl p-6"
+          className="glass-card p-8 rounded-2xl border-l-4 border-red-500"
         >
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-red-500/10 rounded-lg">
-              <ShieldAlert className="w-5 h-5 text-red-400" />
+          <div className="flex items-center gap-4 mb-6">
+            <div className="p-3 bg-red-500/10 rounded-xl">
+              <ShieldAlert className="w-6 h-6 text-red-600" />
             </div>
-            <h3 className="text-sm font-medium text-white/60 uppercase tracking-wider">Rejected / Denied</h3>
+            <h3 className="text-xs font-bold text-black/40 uppercase tracking-widest">Rejected / Denied</h3>
           </div>
-          <p className="text-3xl font-light">{rejectedAssets.length}</p>
-          <p className="text-xs text-white/40 mt-2">Requires legal review or alternative sourcing</p>
+          <p className="text-5xl font-bold text-black">{rejectedAssets.length}</p>
+          <p className="text-xs text-black/40 mt-3 font-medium">Requires legal review or alternative sourcing</p>
         </motion.div>
       </div>
 
-      <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
-        <div className="p-6 border-b border-white/10">
-          <h2 className="text-xl font-medium">Clearance Pipeline</h2>
-          <p className="text-sm text-white/40 mt-1">Manage rights and permissions for all project assets</p>
+      <div className="glass-card rounded-2xl overflow-hidden">
+        <div className="p-10 border-b border-black/5">
+          <h2 className="text-3xl font-bold">Clearance Pipeline</h2>
+          <p className="text-sm text-black/40 mt-1">Manage rights and permissions for all project assets</p>
         </div>
-        <div className="p-6">
+        <div className="p-10">
           <AssetTable assets={assets} isEmailConnected={isEmailConnected} />
         </div>
       </div>

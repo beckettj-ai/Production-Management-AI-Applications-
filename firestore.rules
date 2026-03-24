@@ -1,0 +1,103 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {uid}
+    // Fields:
+    //   - uid: string (required) - Firebase Auth UID
+    //   - email: string (required) - User's email
+    //   - displayName: string (optional)
+    //   - photoURL: string (optional)
+    //   - createdAt: timestamp (optional)
+    //
+    // Collection: assets
+    // Document ID: {assetId}
+    // Fields:
+    //   - id: string (required) - Unique asset ID
+    //   - uid: string (required) - Owner's user ID
+    //   - asset_name: string (required) - Name of the asset
+    //   - asset_type: string (required) - Video, Image, Audio
+    //   - detected_source: string (required)
+    //   - copyright_status: string (required)
+    //   - risk_level: string (required)
+    //   - workflow_stage: string (required)
+    //   - thumbnail_url: string (optional)
+    //   - ai_confidence_score: number (optional)
+    //   - last_updated: timestamp (optional)
+    //   - rights_holder: map (optional)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.uid;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "Searching4Banjo@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return hasOnlyAllowedFields(['uid', 'email', 'displayName', 'photoURL', 'createdAt', 'role']) &&
+             data.uid is string && data.email is string;
+    }
+
+    function isValidAsset(data) {
+      return hasRequiredFields(['uid', 'asset_name', 'asset_type', 'copyright_status', 'workflow_stage']) &&
+             data.uid is string && data.asset_name is string && data.asset_name.size() < 200 &&
+             data.asset_type in ['Video', 'Image', 'Audio'] &&
+             data.copyright_status in ['Public Domain', 'Cleared', 'Creative Commons', 'Orphan Work', 'Copyrighted'] &&
+             data.workflow_stage in ['Backlog', 'Searching', 'Pending Response', 'Cleared', 'Rejected'];
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) || isAdmin());
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) || isAdmin());
+    }
+
+    match /assets/{assetId} {
+      allow read: if isAuthenticated() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidAsset(request.resource.data) && (request.resource.data.uid == request.auth.uid || isAdmin());
+      allow update: if isAuthenticated() && isValidAsset(request.resource.data) && (resource.data.uid == request.auth.uid || isAdmin());
+      allow delete: if isAuthenticated() && (resource.data.uid == request.auth.uid || isAdmin());
+    }
+    
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -6,6 +6,8 @@ import { X, Copy, Check, Wand2, Loader2, Send } from "lucide-react";
 import { MOCK_PROJECT } from "../../data/mock-data";
 import { GoogleGenAI, Type } from "@google/genai";
 import { toast } from "sonner";
+import { db, OperationType, handleFirestoreError } from "../../firebase";
+import { doc, updateDoc } from "firebase/firestore";
 
 export default function OutreachModal({ asset, isEmailConnected }: { asset: Asset, isEmailConnected?: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -100,18 +102,25 @@ export default function OutreachModal({ asset, isEmailConnected }: { asset: Asse
 
     setIsSending(true);
     
-    // Simulate API call to send email
     try {
+      // Simulate API call to send email
       await new Promise(resolve => setTimeout(resolve, 1500));
       
+      // Update asset in Firestore
+      const assetRef = doc(db, "assets", asset.id);
+      await updateDoc(assetRef, {
+        workflow_stage: "Pending Response",
+        "rights_holder.contact_status": "Contacted",
+        last_updated: new Date().toISOString()
+      });
+
       toast.success("Email sent successfully!", {
         description: `Clearance request sent to ${asset.rights_holder?.name}`,
       });
       
       setIsSent(true);
-      // In a real app, we'd update the asset status here
     } catch (err) {
-      toast.error("Failed to send email. Please try again.");
+      handleFirestoreError(err, OperationType.UPDATE, `assets/${asset.id}`);
     } finally {
       setIsSending(false);
     }
@@ -156,74 +165,74 @@ export default function OutreachModal({ asset, isEmailConnected }: { asset: Asse
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-2xl bg-[#0a0a0a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+              className="relative w-full max-w-2xl bg-white border border-black/5 rounded-[32px] shadow-2xl overflow-hidden"
             >
-              <div className="p-6 border-b border-white/10 flex justify-between items-center">
+              <div className="p-8 border-b border-black/5 flex justify-between items-center bg-white">
                 <div>
-                  <h3 className="text-xl font-medium">Clearance Outreach</h3>
-                  <p className="text-sm text-white/40">Drafting request for {asset.rights_holder?.name}</p>
+                  <h3 className="text-2xl font-bold">Clearance Outreach</h3>
+                  <p className="text-sm text-black/40">Drafting request for {asset.rights_holder?.name}</p>
                 </div>
                 <button 
                   onClick={closeModal}
-                  className="p-2 hover:bg-white/5 rounded-full transition-colors"
+                  className="p-3 hover:bg-black/5 rounded-full transition-colors"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-6 h-6" />
                 </button>
               </div>
 
-              <div className="p-6 min-h-[400px]">
+              <div className="p-8 min-h-[400px] bg-[#fcfdfe]">
                 {isSent ? (
                   <div className="flex flex-col items-center justify-center h-full py-12 text-center">
                     <motion.div 
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
-                      className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mb-6"
+                      className="w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center mb-8"
                     >
-                      <Check className="w-8 h-8 text-green-400" />
+                      <Check className="w-10 h-10 text-green-600" />
                     </motion.div>
-                    <h4 className="text-lg font-medium mb-2 text-white">Email Sent!</h4>
-                    <p className="text-sm text-white/40 max-w-md mb-8">
+                    <h4 className="text-2xl font-bold mb-3 text-black">Email Sent!</h4>
+                    <p className="text-sm text-black/40 max-w-md mb-10 leading-relaxed">
                       Your clearance request has been successfully dispatched to {asset.rights_holder?.name}. 
                       We'll track the response in your inventory.
                     </p>
-                    <Button onClick={closeModal} variant="outline" className="w-full max-w-xs">
+                    <Button onClick={closeModal} variant="outline" className="w-full max-w-xs h-12 rounded-xl border-black/5 bg-white shadow-sm">
                       Close Workspace
                     </Button>
                   </div>
                 ) : !draft && !isGenerating ? (
                   <div className="flex flex-col items-center justify-center h-full py-12 text-center">
-                    <div className="w-16 h-16 rounded-full bg-cyan-500/10 flex items-center justify-center mb-6">
-                      <Wand2 className="w-8 h-8 text-cyan-400" />
+                    <div className="w-20 h-20 rounded-[24px] bg-cyan-500/10 flex items-center justify-center mb-8">
+                      <Wand2 className="w-10 h-10 text-cyan-600" />
                     </div>
-                    <h4 className="text-lg font-medium mb-2 text-white">Generate AI Draft</h4>
-                    <p className="text-sm text-white/40 max-w-md mb-8">
+                    <h4 className="text-2xl font-bold mb-3 text-black">Generate AI Draft</h4>
+                    <p className="text-sm text-black/40 max-w-md mb-10 leading-relaxed">
                       Archive IQ will analyze the asset metadata and project details to craft a professional clearance request.
                     </p>
                     {error && (
-                      <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-400 max-w-md">
+                      <div className="mb-8 p-4 bg-red-500/5 border border-red-500/10 rounded-xl text-xs text-red-600 max-w-md font-medium">
                         {error}
                       </div>
                     )}
-                    <Button onClick={generateDraft} className="w-full max-w-xs">
+                    <Button onClick={generateDraft} className="w-full max-w-xs h-12 rounded-xl bg-black text-white hover:bg-black/80 shadow-xl shadow-black/10">
                       {error ? "Try Again" : "Generate Email"}
                     </Button>
                   </div>
                 ) : isGenerating ? (
                   <div className="flex flex-col items-center justify-center h-full py-12">
-                    <Loader2 className="w-10 h-10 text-cyan-400 animate-spin mb-4" />
-                    <p className="text-sm text-white/40 animate-pulse">Analyzing rights holder data and drafting...</p>
+                    <Loader2 className="w-12 h-12 text-cyan-500 animate-spin mb-6" />
+                    <p className="text-sm text-black/40 font-bold animate-pulse">Analyzing rights holder data and drafting...</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     <div>
-                      <label className="text-[10px] font-mono uppercase tracking-widest text-white/40 mb-1 block">Subject</label>
-                      <div className="p-3 bg-white/5 border border-white/10 rounded-lg text-sm text-white/90">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-black/30 mb-2 block">Subject</label>
+                      <div className="p-4 bg-white border border-black/5 rounded-xl text-sm font-bold text-black shadow-sm">
                         {draft?.subject}
                       </div>
                     </div>
                     <div>
-                      <label className="text-[10px] font-mono uppercase tracking-widest text-white/40 mb-1 block">Message Body</label>
-                      <div className="p-4 bg-white/5 border border-white/10 rounded-lg text-sm h-64 overflow-y-auto leading-relaxed whitespace-pre-wrap text-white/90">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-black/30 mb-2 block">Message Body</label>
+                      <div className="p-6 bg-white border border-black/5 rounded-xl text-sm h-72 overflow-y-auto leading-relaxed whitespace-pre-wrap text-black/70 shadow-sm scrollbar-hide">
                         {draft?.body}
                       </div>
                     </div>
@@ -231,19 +240,19 @@ export default function OutreachModal({ asset, isEmailConnected }: { asset: Asse
                 )}
               </div>
 
-              <div className="p-6 border-t border-white/10 bg-white/[0.02] flex justify-between items-center">
-                <Button variant="ghost" onClick={closeModal}>Cancel</Button>
-                <div className="flex gap-3">
+              <div className="p-8 border-t border-black/5 bg-white flex justify-between items-center">
+                <Button variant="ghost" onClick={closeModal} className="text-black/40 font-bold hover:text-black">Cancel</Button>
+                <div className="flex gap-4">
                   {draft && !isSent && (
                     <>
-                      <Button variant="outline" onClick={copyToClipboard}>
+                      <Button variant="outline" onClick={copyToClipboard} className="h-12 rounded-xl border-black/5 bg-white shadow-sm font-bold">
                         {copied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
                         {copied ? "Copied" : "Copy Draft"}
                       </Button>
                       <Button 
                         onClick={handleSend} 
                         disabled={isSending}
-                        className="bg-cyan-600 hover:bg-cyan-500 text-white min-w-[120px]"
+                        className="bg-black hover:bg-black/80 text-white h-12 px-8 rounded-xl shadow-xl shadow-black/10 font-bold min-w-[140px]"
                       >
                         {isSending ? (
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />

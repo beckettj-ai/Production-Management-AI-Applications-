@@ -4,28 +4,90 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { motion } from "motion/react";
-import { MOCK_ASSETS, MOCK_PROJECT } from "./data/mock-data";
+import { motion, AnimatePresence } from "motion/react";
+import { MOCK_PROJECT } from "./data/mock-data";
 import SummaryHeader from "./components/dashboard/SummaryHeader";
 import AssetTable from "./components/dashboard/AssetTable";
 import InsightsRail from "./components/dashboard/InsightsRail";
 import { Button } from "./components/ui/Button";
-import { Plus, Search, Filter, Download, Archive, Settings, LayoutDashboard, List, ShieldCheck, Loader2 } from "lucide-react";
+import { Plus, Search, Filter, Download, Archive, Settings, LayoutDashboard, List, ShieldCheck, Loader2, LogIn, LogOut, User as UserIcon } from "lucide-react";
 import { Toaster, toast } from "sonner";
 import SettingsModal from "./components/dashboard/SettingsModal";
 import ClearanceView from "./components/dashboard/ClearanceView";
 import AddAssetModal from "./components/dashboard/AddAssetModal";
 import { Asset } from "./types";
+import { auth, db, googleProvider, OperationType, handleFirestoreError } from "./firebase";
+import { onAuthStateChanged, signInWithPopup, signOut, User } from "firebase/auth";
+import { collection, query, where, onSnapshot, doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 type View = "Dashboard" | "Inventory" | "Clearance";
 
 export default function App() {
-  const [assets, setAssets] = useState<Asset[]>(MOCK_ASSETS);
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [assets, setAssets] = useState<Asset[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddAssetOpen, setIsAddAssetOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [currentView, setCurrentView] = useState<View>("Dashboard");
   const [isEmailConnected, setIsEmailConnected] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      setIsAuthReady(true);
+      if (user) {
+        // Create/Update user profile in Firestore
+        const userRef = doc(db, 'users', user.uid);
+        setDoc(userRef, {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+          lastLogin: serverTimestamp()
+        }, { merge: true }).catch(err => handleFirestoreError(err, OperationType.WRITE, `users/${user.uid}`));
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setAssets([]);
+      return;
+    }
+
+    const q = query(collection(db, "assets"), where("uid", "==", user.uid));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const assetsData = snapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id
+      })) as Asset[];
+      setAssets(assetsData.sort((a, b) => new Date(b.last_updated).getTime() - new Date(a.last_updated).getTime()));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, "assets");
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const handleLogin = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+      toast.success("Welcome to Archive IQ");
+    } catch (error) {
+      toast.error("Failed to sign in");
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      toast.success("Signed out successfully");
+    } catch (error) {
+      toast.error("Failed to sign out");
+    }
+  };
 
   const handleConnectEmail = async () => {
     // Simulate OAuth flow
@@ -126,8 +188,47 @@ export default function App() {
   };
 
   const handleAddAsset = (newAsset: Asset) => {
-    setAssets(prev => [newAsset, ...prev]);
+    // Assets are now handled by onSnapshot
   };
+
+  if (!isAuthReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#f0f7ff]">
+        <Loader2 className="w-12 h-12 text-cyan-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#f0f7ff] p-6">
+        <Toaster position="top-right" theme="light" richColors />
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-card p-12 rounded-[40px] max-w-md w-full text-center"
+        >
+          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center shadow-xl shadow-cyan-200 mx-auto mb-8">
+            <Archive className="w-10 h-10 text-white" />
+          </div>
+          <h1 className="text-4xl font-bold mb-4">Archive IQ</h1>
+          <p className="text-black/40 mb-10 leading-relaxed">
+            The intelligent workspace for archival clearance and rights management.
+          </p>
+          <Button 
+            onClick={handleLogin}
+            className="w-full bg-black hover:bg-black/80 text-white h-14 rounded-2xl font-bold flex items-center justify-center gap-3 shadow-xl shadow-black/10"
+          >
+            <LogIn className="w-5 h-5" />
+            Sign in with Google
+          </Button>
+          <p className="mt-8 text-[10px] text-black/30 uppercase tracking-widest font-bold">
+            Secure Enterprise Access
+          </p>
+        </motion.div>
+      </div>
+    );
+  }
 
   const renderContent = () => {
     switch (currentView) {
@@ -173,22 +274,22 @@ export default function App() {
         );
       case "Inventory":
         return (
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+          <div className="glass-card rounded-2xl p-10">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-10">
               <div>
-                <h2 className="text-2xl font-medium">Full Inventory</h2>
-                <p className="text-sm text-white/40 mt-1">Browse and manage all archival assets in the project</p>
+                <h2 className="text-3xl font-bold">Full Inventory</h2>
+                <p className="text-sm text-black/40 mt-1">Browse and manage all archival assets in the project</p>
               </div>
-              <div className="flex gap-2 w-full sm:w-auto">
+              <div className="flex gap-3 w-full sm:w-auto">
                 <div className="relative flex-1 sm:flex-none">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/40" />
                   <input 
                     type="text" 
                     placeholder="Search assets..." 
-                    className="bg-white/5 border border-white/10 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-cyan-500/50 transition-colors w-full sm:w-64"
+                    className="bg-black/5 border border-black/5 rounded-full py-3 pl-12 pr-6 text-sm focus:outline-none focus:border-cyan-500/50 transition-colors w-full sm:w-72"
                   />
                 </div>
-                <Button variant="outline" size="icon" className="rounded-full border-white/10">
+                <Button variant="outline" size="icon" className="rounded-full border-black/5 bg-white shadow-sm">
                   <Filter className="w-4 h-4" />
                 </Button>
               </div>
@@ -204,8 +305,8 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-cyan-500/30">
-      <Toaster position="top-right" theme="dark" richColors />
+    <div className="min-h-screen text-[#1a1a1a] font-sans selection:bg-cyan-500/30">
+      <Toaster position="top-right" theme="light" richColors />
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
       <AddAssetModal 
         isOpen={isAddAssetOpen} 
@@ -215,47 +316,47 @@ export default function App() {
       
       {/* Atmospheric Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-cyan-900/10 blur-[120px] rounded-full" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-900/10 blur-[120px] rounded-full" />
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-cyan-200/20 blur-[120px] rounded-full" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-200/20 blur-[120px] rounded-full" />
       </div>
 
       {/* Navigation Bar */}
-      <nav className="relative z-20 border-b border-white/5 bg-black/20 backdrop-blur-md">
-        <div className="max-w-[1600px] mx-auto px-6 h-16 flex items-center justify-between">
+      <nav className="relative z-20 border-b border-black/5 bg-white/40 backdrop-blur-xl">
+        <div className="max-w-[1600px] mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView("Dashboard")}>
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-              <Archive className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center shadow-lg shadow-cyan-200">
+              <Archive className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-semibold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
+            <span className="text-2xl font-bold tracking-tight text-black">
               Archive IQ
             </span>
           </div>
           
-          <div className="hidden md:flex items-center gap-8 text-sm font-medium text-white/40">
+          <div className="hidden md:flex items-center gap-10 text-sm font-semibold text-black/40">
             <button 
               onClick={() => setCurrentView("Dashboard")}
-              className={`${currentView === "Dashboard" ? "text-white" : "hover:text-white"} transition-colors flex items-center gap-1.5`}
+              className={`${currentView === "Dashboard" ? "text-black" : "hover:text-black"} transition-colors flex items-center gap-2`}
             >
               <LayoutDashboard className="w-4 h-4" />
               Dashboard
             </button>
             <button 
               onClick={() => setCurrentView("Inventory")}
-              className={`${currentView === "Inventory" ? "text-white" : "hover:text-white"} transition-colors flex items-center gap-1.5`}
+              className={`${currentView === "Inventory" ? "text-black" : "hover:text-black"} transition-colors flex items-center gap-2`}
             >
               <List className="w-4 h-4" />
               Inventory
             </button>
             <button 
               onClick={() => setCurrentView("Clearance")}
-              className={`${currentView === "Clearance" ? "text-white" : "hover:text-white"} transition-colors flex items-center gap-1.5`}
+              className={`${currentView === "Clearance" ? "text-black" : "hover:text-black"} transition-colors flex items-center gap-2`}
             >
               <ShieldCheck className="w-4 h-4" />
               Clearance
             </button>
             <button 
               onClick={() => setIsSettingsOpen(true)}
-              className="hover:text-white transition-colors flex items-center gap-1.5"
+              className="hover:text-black transition-colors flex items-center gap-2"
             >
               <Settings className="w-4 h-4" />
               Settings
@@ -263,34 +364,45 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-xs font-mono text-white/60">
-              JD
+            <button 
+              onClick={handleLogout}
+              className="text-black/40 hover:text-red-500 transition-colors p-2"
+              title="Sign Out"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+            <div className="w-10 h-10 rounded-full bg-white border border-black/5 shadow-sm flex items-center justify-center overflow-hidden">
+              {user.photoURL ? (
+                <img src={user.photoURL} alt={user.displayName || "User"} className="w-full h-full object-cover" />
+              ) : (
+                <UserIcon className="w-5 h-5 text-black/40" />
+              )}
             </div>
           </div>
         </div>
       </nav>
 
-      <main className="relative z-10 max-w-[1600px] mx-auto px-6 py-8">
+      <main className="relative z-10 max-w-[1600px] mx-auto px-6 py-12">
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-12">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-16">
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
             key={currentView}
           >
-            <p className="text-cyan-400 text-xs font-mono tracking-widest uppercase mb-2">
+            <p className="text-cyan-600 text-xs font-bold font-mono tracking-widest uppercase mb-3">
               {currentView === "Dashboard" ? "Project Workspace" : currentView}
             </p>
-            <h1 className="text-4xl md:text-5xl font-light tracking-tight text-white/90">
+            <h1 className="text-5xl md:text-6xl font-bold tracking-tight text-black">
               {currentView === "Dashboard" ? MOCK_PROJECT.title : `Manage ${currentView}`}
             </h1>
           </motion.div>
           
-          <div className="flex gap-3">
+          <div className="flex gap-4">
             <Button 
               variant="outline" 
-              className="bg-white/5 border-white/10 hover:bg-white/10"
+              className="bg-white border-black/5 hover:bg-black/5 text-black h-12 px-6 rounded-xl shadow-sm"
               onClick={handleExport}
               disabled={isExporting}
             >
@@ -298,7 +410,7 @@ export default function App() {
               {isExporting ? "Exporting..." : "Export Report"}
             </Button>
             <Button 
-              className="bg-cyan-600 hover:bg-cyan-500 text-white shadow-[0_0_20px_rgba(8,145,178,0.3)]"
+              className="bg-black hover:bg-black/80 text-white h-12 px-6 rounded-xl shadow-xl shadow-black/10"
               onClick={() => setIsAddAssetOpen(true)}
             >
               <Plus className="w-4 h-4 mr-2" /> Add Asset
