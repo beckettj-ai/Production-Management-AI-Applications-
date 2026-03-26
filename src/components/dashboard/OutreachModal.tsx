@@ -6,8 +6,6 @@ import { X, Copy, Check, Wand2, Loader2, Send } from "lucide-react";
 import { MOCK_PROJECT } from "../../data/mock-data";
 import { GoogleGenAI, Type } from "@google/genai";
 import { toast } from "sonner";
-import { db, OperationType, handleFirestoreError } from "../../firebase";
-import { doc, updateDoc } from "firebase/firestore";
 
 export default function OutreachModal({ asset, isEmailConnected }: { asset: Asset, isEmailConnected?: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -102,25 +100,18 @@ export default function OutreachModal({ asset, isEmailConnected }: { asset: Asse
 
     setIsSending(true);
     
+    // Simulate API call to send email
     try {
-      // Simulate API call to send email
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      // Update asset in Firestore
-      const assetRef = doc(db, "assets", asset.id);
-      await updateDoc(assetRef, {
-        workflow_stage: "Pending Response",
-        "rights_holder.contact_status": "Contacted",
-        last_updated: new Date().toISOString()
-      });
-
       toast.success("Email sent successfully!", {
         description: `Clearance request sent to ${asset.rights_holder?.name}`,
       });
       
       setIsSent(true);
+      // In a real app, we'd update the asset status here
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `assets/${asset.id}`);
+      toast.error("Failed to send email. Please try again.");
     } finally {
       setIsSending(false);
     }

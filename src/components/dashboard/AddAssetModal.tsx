@@ -4,8 +4,6 @@ import { Button } from "../ui/Button";
 import { motion, AnimatePresence } from "motion/react";
 import { Asset, AssetType, CopyrightStatus, RiskLevel, WorkflowStage } from "../../types";
 import { toast } from "sonner";
-import { db, auth, OperationType, handleFirestoreError } from "../../firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 interface AddAssetModalProps {
   isOpen: boolean;
@@ -26,28 +24,21 @@ export default function AddAssetModal({ isOpen, onClose, onAdd }: AddAssetModalP
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth.currentUser) {
-      toast.error("You must be signed in to add assets");
-      return;
-    }
     setIsSubmitting(true);
 
+    // Simulate API call
     try {
-      const assetData = {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const newAsset: Asset = {
+        id: Math.random().toString(36).substr(2, 9),
         ...formData,
-        uid: auth.currentUser.uid,
         thumbnail_url: `https://picsum.photos/seed/${formData.asset_name}/400/225`,
         ai_confidence_score: 0.85 + Math.random() * 0.1,
         last_updated: new Date().toISOString(),
-        rights_holder: {
-          name: formData.detected_source,
-          email: "",
-          contact_status: "Not Contacted"
-        }
       };
 
-      await addDoc(collection(db, "assets"), assetData);
-      
+      onAdd(newAsset);
       toast.success("Asset added to inventory");
       onClose();
       // Reset form
@@ -60,7 +51,7 @@ export default function AddAssetModal({ isOpen, onClose, onAdd }: AddAssetModalP
         workflow_stage: "Backlog",
       });
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, "assets");
+      toast.error("Failed to add asset");
     } finally {
       setIsSubmitting(false);
     }

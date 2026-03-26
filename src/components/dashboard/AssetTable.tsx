@@ -1,23 +1,8 @@
 import { Asset } from "../../types";
 import { Badge } from "../ui/Badge";
 import OutreachModal from "./OutreachModal";
-import { Trash2 } from "lucide-react";
-import { db, OperationType, handleFirestoreError } from "../../firebase";
-import { doc, deleteDoc } from "firebase/firestore";
-import { toast } from "sonner";
 
 export default function AssetTable({ assets, isEmailConnected }: { assets: Asset[], isEmailConnected?: boolean }) {
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this asset?")) return;
-    
-    try {
-      await deleteDoc(doc(db, "assets", id));
-      toast.success("Asset deleted successfully");
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `assets/${id}`);
-    }
-  };
-
   return (
     <div className="bg-white/40 border border-black/5 rounded-2xl overflow-hidden backdrop-blur-md">
       <div className="overflow-x-auto">
@@ -66,20 +51,11 @@ export default function AssetTable({ assets, isEmailConnected }: { assets: Asset
                   </div>
                 </td>
                 <td className="p-5 text-right">
-                  <div className="flex items-center justify-end gap-3">
-                    {asset.copyright_status === 'Copyrighted' ? (
-                      <OutreachModal asset={asset} isEmailConnected={isEmailConnected} />
-                    ) : (
-                      <button className="text-xs font-bold text-black/40 hover:text-black transition-colors">View Details</button>
-                    )}
-                    <button 
-                      onClick={() => handleDelete(asset.id)}
-                      className="p-2 text-black/20 hover:text-red-500 transition-colors"
-                      title="Delete Asset"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                  {asset.copyright_status === 'Copyrighted' ? (
+                    <OutreachModal asset={asset} isEmailConnected={isEmailConnected} />
+                  ) : (
+                    <button className="text-xs font-bold text-black/40 hover:text-black transition-colors">View Details</button>
+                  )}
                 </td>
               </tr>
             ))}

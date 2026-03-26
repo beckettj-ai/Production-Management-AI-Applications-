@@ -4,90 +4,28 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "motion/react";
-import { MOCK_PROJECT } from "./data/mock-data";
+import { motion } from "motion/react";
+import { MOCK_ASSETS, MOCK_PROJECT } from "./data/mock-data";
 import SummaryHeader from "./components/dashboard/SummaryHeader";
 import AssetTable from "./components/dashboard/AssetTable";
 import InsightsRail from "./components/dashboard/InsightsRail";
 import { Button } from "./components/ui/Button";
-import { Plus, Search, Filter, Download, Archive, Settings, LayoutDashboard, List, ShieldCheck, Loader2, LogIn, LogOut, User as UserIcon } from "lucide-react";
+import { Plus, Search, Filter, Download, Archive, Settings, LayoutDashboard, List, ShieldCheck, Loader2 } from "lucide-react";
 import { Toaster, toast } from "sonner";
 import SettingsModal from "./components/dashboard/SettingsModal";
 import ClearanceView from "./components/dashboard/ClearanceView";
 import AddAssetModal from "./components/dashboard/AddAssetModal";
 import { Asset } from "./types";
-import { auth, db, googleProvider, OperationType, handleFirestoreError } from "./firebase";
-import { onAuthStateChanged, signInWithPopup, signOut, User } from "firebase/auth";
-import { collection, query, where, onSnapshot, doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 type View = "Dashboard" | "Inventory" | "Clearance";
 
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
-  const [isAuthReady, setIsAuthReady] = useState(false);
-  const [assets, setAssets] = useState<Asset[]>([]);
+  const [assets, setAssets] = useState<Asset[]>(MOCK_ASSETS);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddAssetOpen, setIsAddAssetOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [currentView, setCurrentView] = useState<View>("Dashboard");
   const [isEmailConnected, setIsEmailConnected] = useState(false);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      setIsAuthReady(true);
-      if (user) {
-        // Create/Update user profile in Firestore
-        const userRef = doc(db, 'users', user.uid);
-        setDoc(userRef, {
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName,
-          photoURL: user.photoURL,
-          lastLogin: serverTimestamp()
-        }, { merge: true }).catch(err => handleFirestoreError(err, OperationType.WRITE, `users/${user.uid}`));
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (!user) {
-      setAssets([]);
-      return;
-    }
-
-    const q = query(collection(db, "assets"), where("uid", "==", user.uid));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const assetsData = snapshot.docs.map(doc => ({
-        ...doc.data(),
-        id: doc.id
-      })) as Asset[];
-      setAssets(assetsData.sort((a, b) => new Date(b.last_updated).getTime() - new Date(a.last_updated).getTime()));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, "assets");
-    });
-
-    return () => unsubscribe();
-  }, [user]);
-
-  const handleLogin = async () => {
-    try {
-      await signInWithPopup(auth, googleProvider);
-      toast.success("Welcome to Archive IQ");
-    } catch (error) {
-      toast.error("Failed to sign in");
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      toast.success("Signed out successfully");
-    } catch (error) {
-      toast.error("Failed to sign out");
-    }
-  };
 
   const handleConnectEmail = async () => {
     // Simulate OAuth flow
@@ -188,47 +126,8 @@ export default function App() {
   };
 
   const handleAddAsset = (newAsset: Asset) => {
-    // Assets are now handled by onSnapshot
+    setAssets(prev => [newAsset, ...prev]);
   };
-
-  if (!isAuthReady) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f0f7ff]">
-        <Loader2 className="w-12 h-12 text-cyan-500 animate-spin" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#f0f7ff] p-6">
-        <Toaster position="top-right" theme="light" richColors />
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="glass-card p-12 rounded-[40px] max-w-md w-full text-center"
-        >
-          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center shadow-xl shadow-cyan-200 mx-auto mb-8">
-            <Archive className="w-10 h-10 text-white" />
-          </div>
-          <h1 className="text-4xl font-bold mb-4">Archive IQ</h1>
-          <p className="text-black/40 mb-10 leading-relaxed">
-            The intelligent workspace for archival clearance and rights management.
-          </p>
-          <Button 
-            onClick={handleLogin}
-            className="w-full bg-black hover:bg-black/80 text-white h-14 rounded-2xl font-bold flex items-center justify-center gap-3 shadow-xl shadow-black/10"
-          >
-            <LogIn className="w-5 h-5" />
-            Sign in with Google
-          </Button>
-          <p className="mt-8 text-[10px] text-black/30 uppercase tracking-widest font-bold">
-            Secure Enterprise Access
-          </p>
-        </motion.div>
-      </div>
-    );
-  }
 
   const renderContent = () => {
     switch (currentView) {
@@ -364,19 +263,8 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-4">
-            <button 
-              onClick={handleLogout}
-              className="text-black/40 hover:text-red-500 transition-colors p-2"
-              title="Sign Out"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
-            <div className="w-10 h-10 rounded-full bg-white border border-black/5 shadow-sm flex items-center justify-center overflow-hidden">
-              {user.photoURL ? (
-                <img src={user.photoURL} alt={user.displayName || "User"} className="w-full h-full object-cover" />
-              ) : (
-                <UserIcon className="w-5 h-5 text-black/40" />
-              )}
+            <div className="w-10 h-10 rounded-full bg-white border border-black/5 shadow-sm flex items-center justify-center text-xs font-bold text-black/60">
+              JD
             </div>
           </div>
         </div>
