@@ -25,6 +25,7 @@ export interface Asset {
   asset_type: AssetType;
   thumbnail_url: string;
   detected_source: string;
+  source_url?: string;
   copyright_status: CopyrightStatus;
   risk_level: RiskLevel;
   workflow_stage: WorkflowStage;

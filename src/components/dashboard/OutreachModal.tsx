@@ -7,12 +7,12 @@ import { MOCK_PROJECT } from "../../data/mock-data";
 import { GoogleGenAI, Type } from "@google/genai";
 import { toast } from "sonner";
 
-export default function OutreachModal({ asset, isEmailConnected }: { asset: Asset, isEmailConnected?: boolean }) {
+export default function OutreachModal({ asset, isEmailConnected, onUpdateAsset }: { asset: Asset, isEmailConnected?: boolean, onUpdateAsset?: (asset: Asset) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isSent, setIsSent] = useState(false);
-  const [draft, setDraft] = useState<{ subject: string; body: string } | null>(null);
+  const [draft, setDraft] = useState<{ to: string; subject: string; body: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,7 +73,12 @@ export default function OutreachModal({ asset, isEmailConnected }: { asset: Asse
         throw new Error("Empty response from AI");
       }
       
-      setDraft(JSON.parse(text));
+      const parsed = JSON.parse(text);
+      setDraft({
+        to: asset.rights_holder?.contact_email || "",
+        subject: parsed.subject,
+        body: parsed.body
+      });
     } catch (err) {
       console.error("Failed to generate draft", err);
       const message = err instanceof Error ? err.message : "An unexpected error occurred";
@@ -105,11 +110,19 @@ export default function OutreachModal({ asset, isEmailConnected }: { asset: Asse
       await new Promise(resolve => setTimeout(resolve, 1500));
       
       toast.success("Email sent successfully!", {
-        description: `Clearance request sent to ${asset.rights_holder?.name}`,
+        description: `Clearance request sent to ${draft.to}`,
       });
       
       setIsSent(true);
-      // In a real app, we'd update the asset status here
+      
+      // Update the asset status to "Pending Response"
+      if (onUpdateAsset) {
+        onUpdateAsset({
+          ...asset,
+          workflow_stage: 'Pending Response',
+          last_updated: new Date().toISOString()
+        });
+      }
     } catch (err) {
       toast.error("Failed to send email. Please try again.");
     } finally {
@@ -143,12 +156,12 @@ export default function OutreachModal({ asset, isEmailConnected }: { asset: Asse
 
       <AnimatePresence>
         {isOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto bg-black/80 backdrop-blur-sm">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              className="fixed inset-0 pointer-events-none"
               onClick={closeModal}
             />
             
@@ -156,9 +169,9 @@ export default function OutreachModal({ asset, isEmailConnected }: { asset: Asse
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-2xl bg-white border border-black/5 rounded-[32px] shadow-2xl overflow-hidden"
+              className="relative w-full max-w-2xl bg-white border border-black/5 rounded-[32px] shadow-2xl overflow-hidden my-auto flex flex-col max-h-none sm:max-h-[90vh]"
             >
-              <div className="p-8 border-b border-black/5 flex justify-between items-center bg-white">
+              <div className="p-8 border-b border-black/5 flex justify-between items-center bg-white shrink-0">
                 <div>
                   <h3 className="text-2xl font-bold">Clearance Outreach</h3>
                   <p className="text-sm text-black/40">Drafting request for {asset.rights_holder?.name}</p>
@@ -171,7 +184,7 @@ export default function OutreachModal({ asset, isEmailConnected }: { asset: Asse
                 </button>
               </div>
 
-              <div className="p-8 min-h-[400px] bg-[#fcfdfe]">
+              <div className="p-8 bg-[#fcfdfe] overflow-y-auto flex-1 scrollbar-hide">
                 {isSent ? (
                   <div className="flex flex-col items-center justify-center h-full py-12 text-center">
                     <motion.div 
@@ -183,7 +196,7 @@ export default function OutreachModal({ asset, isEmailConnected }: { asset: Asse
                     </motion.div>
                     <h4 className="text-2xl font-bold mb-3 text-black">Email Sent!</h4>
                     <p className="text-sm text-black/40 max-w-md mb-10 leading-relaxed">
-                      Your clearance request has been successfully dispatched to {asset.rights_holder?.name}. 
+                      Your clearance request has been successfully dispatched to {draft?.to}. 
                       We'll track the response in your inventory.
                     </p>
                     <Button onClick={closeModal} variant="outline" className="w-full max-w-xs h-12 rounded-xl border-black/5 bg-white shadow-sm">
@@ -216,22 +229,48 @@ export default function OutreachModal({ asset, isEmailConnected }: { asset: Asse
                 ) : (
                   <div className="space-y-6">
                     <div>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-black/30 mb-2 block">To</label>
+                      <input 
+                        type="email"
+                        value={draft.to}
+                        onChange={(e) => setDraft({ ...draft, to: e.target.value })}
+                        className="w-full p-4 bg-white border border-black/5 rounded-xl text-sm font-bold text-black shadow-sm focus:outline-none focus:border-cyan-500/50 transition-colors"
+                      />
+                    </div>
+                    <div>
                       <label className="text-[10px] font-bold uppercase tracking-widest text-black/30 mb-2 block">Subject</label>
-                      <div className="p-4 bg-white border border-black/5 rounded-xl text-sm font-bold text-black shadow-sm">
-                        {draft?.subject}
-                      </div>
+                      <input 
+                        type="text"
+                        value={draft.subject}
+                        onChange={(e) => setDraft({ ...draft, subject: e.target.value })}
+                        className="w-full p-4 bg-white border border-black/5 rounded-xl text-sm font-bold text-black shadow-sm focus:outline-none focus:border-cyan-500/50 transition-colors"
+                      />
                     </div>
                     <div>
                       <label className="text-[10px] font-bold uppercase tracking-widest text-black/30 mb-2 block">Message Body</label>
-                      <div className="p-6 bg-white border border-black/5 rounded-xl text-sm h-72 overflow-y-auto leading-relaxed whitespace-pre-wrap text-black/70 shadow-sm scrollbar-hide">
-                        {draft?.body}
-                      </div>
+                      <textarea 
+                        value={draft.body}
+                        onChange={(e) => setDraft({ ...draft, body: e.target.value })}
+                        className="w-full p-6 bg-white border border-black/5 rounded-xl text-sm min-h-[300px] leading-relaxed whitespace-pre-wrap text-black/70 shadow-sm mb-4 focus:outline-none focus:border-cyan-500/50 transition-colors resize-none"
+                      />
+                      <Button 
+                        onClick={handleSend} 
+                        disabled={isSending}
+                        className="w-full bg-black hover:bg-black/80 text-white h-12 rounded-xl shadow-xl shadow-black/10 font-bold"
+                      >
+                        {isSending ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Send className="w-4 h-4 mr-2" />
+                        )}
+                        {isSending ? "Sending..." : "Send Email Now"}
+                      </Button>
                     </div>
                   </div>
                 )}
               </div>
 
-              <div className="p-8 border-t border-black/5 bg-white flex justify-between items-center">
+              <div className="p-8 border-t border-black/5 bg-white flex justify-between items-center shrink-0">
                 <Button variant="ghost" onClick={closeModal} className="text-black/40 font-bold hover:text-black">Cancel</Button>
                 <div className="flex gap-4">
                   {draft && !isSent && (

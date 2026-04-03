@@ -17,6 +17,7 @@ export default function AddAssetModal({ isOpen, onClose, onAdd }: AddAssetModalP
     asset_name: "",
     asset_type: "Video" as AssetType,
     detected_source: "",
+    source_url: "",
     copyright_status: "Copyrighted" as CopyrightStatus,
     risk_level: "Medium" as RiskLevel,
     workflow_stage: "Backlog" as WorkflowStage,
@@ -46,6 +47,7 @@ export default function AddAssetModal({ isOpen, onClose, onAdd }: AddAssetModalP
         asset_name: "",
         asset_type: "Video",
         detected_source: "",
+        source_url: "",
         copyright_status: "Copyrighted",
         risk_level: "Medium",
         workflow_stage: "Backlog",
@@ -125,21 +127,42 @@ export default function AddAssetModal({ isOpen, onClose, onAdd }: AddAssetModalP
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-black/30 mb-2 block">Source / Rights Holder</label>
-                <input 
-                  required
-                  type="text"
-                  value={formData.detected_source}
-                  onChange={e => setFormData(prev => ({ ...prev, detected_source: e.target.value }))}
-                  className="w-full bg-white border border-black/5 rounded-xl p-4 text-sm focus:outline-none focus:border-cyan-500/50 transition-colors shadow-sm"
-                  placeholder="e.g. NASA Archives"
-                />
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-black/30 mb-2 block">Source / Rights Holder</label>
+                  <input 
+                    required
+                    type="text"
+                    value={formData.detected_source}
+                    onChange={e => setFormData(prev => ({ ...prev, detected_source: e.target.value }))}
+                    className="w-full bg-white border border-black/5 rounded-xl p-4 text-sm focus:outline-none focus:border-cyan-500/50 transition-colors shadow-sm"
+                    placeholder="e.g. NASA Archives"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-black/30 mb-2 block">Source URL / Link</label>
+                  <input 
+                    type="url"
+                    value={formData.source_url}
+                    onChange={e => setFormData(prev => ({ ...prev, source_url: e.target.value }))}
+                    className="w-full bg-white border border-black/5 rounded-xl p-4 text-sm focus:outline-none focus:border-cyan-500/50 transition-colors shadow-sm"
+                    placeholder="https://..."
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-black/30 mb-2 block">Copyright Status</label>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-black/30 block">Copyright Status</label>
+                    <div className="group relative">
+                      <div className="w-4 h-4 rounded-full bg-black/5 flex items-center justify-center text-[10px] font-bold cursor-help">?</div>
+                      <div className="absolute bottom-full mb-2 right-0 w-48 p-3 bg-black text-white text-[10px] rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 leading-relaxed">
+                        <span className="font-bold block mb-1">Orphan Work:</span>
+                        A copyrighted work for which the rightsholder is unknown or cannot be contacted.
+                      </div>
+                    </div>
+                  </div>
                   <select 
                     value={formData.copyright_status}
                     onChange={e => setFormData(prev => ({ ...prev, copyright_status: e.target.value as CopyrightStatus }))}

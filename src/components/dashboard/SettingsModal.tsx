@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "../ui/Button";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Key, ExternalLink, ShieldCheck, AlertCircle } from "lucide-react";
+import { X, Key, ExternalLink, ShieldCheck, AlertCircle, Mail, Check } from "lucide-react";
 
 declare global {
   interface Window {
@@ -12,7 +12,17 @@ declare global {
   }
 }
 
-export default function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+export default function SettingsModal({ 
+  isOpen, 
+  onClose, 
+  isEmailConnected, 
+  onConnectEmail 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void;
+  isEmailConnected: boolean;
+  onConnectEmail: () => void;
+}) {
   const [hasKey, setHasKey] = useState(false);
 
   useEffect(() => {
@@ -73,7 +83,7 @@ export default function SettingsModal({ isOpen, onClose }: { isOpen: boolean; on
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-8 overflow-y-auto max-h-[70vh] scrollbar-hide">
               <section>
                 <h4 className="text-sm font-medium text-white/80 mb-4 flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-green-400" />
@@ -120,6 +130,48 @@ export default function SettingsModal({ isOpen, onClose }: { isOpen: boolean; on
                       Learn about API Billing <ExternalLink className="w-3 h-3" />
                     </a>
                   </div>
+                </div>
+              </section>
+
+              <section>
+                <h4 className="text-sm font-medium text-white/80 mb-4 flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-cyan-400" />
+                  Email Integration
+                </h4>
+                
+                <div className={`bg-white/5 border border-white/10 rounded-xl p-4 space-y-4 ${isEmailConnected ? 'border-green-500/20' : ''}`}>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-sm font-medium text-white/90">Google Workspace</p>
+                      <p className="text-xs text-white/40 mt-1">
+                        {isEmailConnected 
+                          ? "Connected to searching4banjo@gmail.com" 
+                          : "Not connected."}
+                      </p>
+                    </div>
+                    {isEmailConnected && (
+                      <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
+                        <Check className="w-4 h-4 text-green-400" />
+                      </div>
+                    )}
+                  </div>
+
+                  {!isEmailConnected ? (
+                    <Button 
+                      onClick={onConnectEmail}
+                      className="w-full bg-white text-black hover:bg-white/90"
+                    >
+                      Connect Gmail
+                    </Button>
+                  ) : (
+                    <Button 
+                      variant="outline"
+                      className="w-full border-white/10 text-white/40 hover:text-white/60"
+                      disabled
+                    >
+                      Disconnect (Coming Soon)
+                    </Button>
+                  )}
                 </div>
               </section>
 

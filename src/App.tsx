@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { MOCK_ASSETS, MOCK_PROJECT } from "./data/mock-data";
 import SummaryHeader from "./components/dashboard/SummaryHeader";
 import AssetTable from "./components/dashboard/AssetTable";
@@ -21,11 +21,14 @@ type View = "Dashboard" | "Inventory" | "Clearance";
 
 export default function App() {
   const [assets, setAssets] = useState<Asset[]>(MOCK_ASSETS);
+  const [projectTitle, setProjectTitle] = useState(MOCK_PROJECT.title);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddAssetOpen, setIsAddAssetOpen] = useState(false);
+  const [isProjectSwitcherOpen, setIsProjectSwitcherOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [currentView, setCurrentView] = useState<View>("Dashboard");
   const [isEmailConnected, setIsEmailConnected] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const handleConnectEmail = async () => {
     // Simulate OAuth flow
@@ -79,8 +82,16 @@ export default function App() {
         });
       }
     };
+
+    const handleOpenAddAsset = () => setIsAddAssetOpen(true);
+
     window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
+    window.addEventListener('open-add-asset', handleOpenAddAsset);
+    
+    return () => {
+      window.removeEventListener('message', handleMessage);
+      window.removeEventListener('open-add-asset', handleOpenAddAsset);
+    };
   }, []);
 
   const handleExport = async () => {
@@ -129,28 +140,52 @@ export default function App() {
     setAssets(prev => [newAsset, ...prev]);
   };
 
+  const handleUpdateAsset = (updatedAsset: Asset) => {
+    setAssets(prev => prev.map(a => a.id === updatedAsset.id ? updatedAsset : a));
+  };
+
   const renderContent = () => {
     switch (currentView) {
       case "Dashboard":
+        const filteredDashboardAssets = assets.filter(a => 
+          a.asset_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          a.copyright_status.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          a.workflow_stage.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          a.rights_holder?.name.toLowerCase().includes(searchQuery.toLowerCase())
+        );
         return (
           <>
             {/* Summary Hero */}
-            <SummaryHeader assets={assets} />
+            <SummaryHeader 
+              assets={assets} 
+              onReviewOrphans={() => setSearchQuery("Orphan Work")} 
+              onDraftRequest={() => setSearchQuery("Stephen Shore")}
+            />
 
             {/* Main Content Grid */}
-            <div className="grid grid-cols-12 gap-8 mt-12">
-              {/* Left: Asset List */}
-              <div className="col-span-12 lg:col-span-9">
+            <div className="grid grid-cols-12 gap-8 mt-6">
+              {/* Full Width: Asset List */}
+              <div className="col-span-12">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                  <h2 className="text-xl font-medium text-white/80">Archival Inventory</h2>
+                  <h2 className="text-xl font-bold uppercase tracking-wider text-cyan-600">Archival Inventory</h2>
                   <div className="flex gap-2 w-full sm:w-auto">
                     <div className="relative flex-1 sm:flex-none">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
                       <input 
                         type="text" 
                         placeholder="Search assets..." 
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
                         className="bg-white/5 border border-white/10 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-cyan-500/50 transition-colors w-full sm:w-64"
                       />
+                      {searchQuery && (
+                        <button 
+                          onClick={() => setSearchQuery("")}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
+                        >
+                          <Plus className="w-4 h-4 rotate-45" />
+                        </button>
+                      )}
                     </div>
                     <Button variant="outline" size="icon" className="rounded-full border-white/10">
                       <Filter className="w-4 h-4" />
@@ -158,20 +193,19 @@ export default function App() {
                   </div>
                 </div>
                 
-                <AssetTable assets={assets} />
-              </div>
-
-              {/* Right: Insights Rail */}
-              <div className="col-span-12 lg:col-span-3">
-                <InsightsRail 
-                  isEmailConnected={isEmailConnected} 
-                  onConnectEmail={handleConnectEmail} 
-                />
+                <div className="min-h-[800px]">
+                  <AssetTable assets={filteredDashboardAssets} onUpdateAsset={handleUpdateAsset} />
+                </div>
               </div>
             </div>
           </>
         );
       case "Inventory":
+        const filteredInventoryAssets = assets.filter(a => 
+          a.asset_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          a.copyright_status.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          a.workflow_stage.toLowerCase().includes(searchQuery.toLowerCase())
+        );
         return (
           <div className="glass-card rounded-2xl p-10">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-10">
@@ -185,19 +219,29 @@ export default function App() {
                   <input 
                     type="text" 
                     placeholder="Search assets..." 
-                    className="bg-black/5 border border-black/5 rounded-full py-3 pl-12 pr-6 text-sm focus:outline-none focus:border-cyan-500/50 transition-colors w-full sm:w-72"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="bg-black/5 border border-black/5 rounded-full py-3 pl-12 pr-10 text-sm focus:outline-none focus:border-cyan-500/50 transition-colors w-full sm:w-72"
                   />
+                  {searchQuery && (
+                    <button 
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-black/20 hover:text-black"
+                    >
+                      <Plus className="w-4 h-4 rotate-45" />
+                    </button>
+                  )}
                 </div>
                 <Button variant="outline" size="icon" className="rounded-full border-black/5 bg-white shadow-sm">
                   <Filter className="w-4 h-4" />
                 </Button>
               </div>
             </div>
-            <AssetTable assets={assets} isEmailConnected={isEmailConnected} />
+            <AssetTable assets={filteredInventoryAssets} isEmailConnected={isEmailConnected} onUpdateAsset={handleUpdateAsset} />
           </div>
         );
       case "Clearance":
-        return <ClearanceView assets={assets} isEmailConnected={isEmailConnected} />;
+        return <ClearanceView assets={assets} isEmailConnected={isEmailConnected} onUpdateAsset={handleUpdateAsset} />;
       default:
         return null;
     }
@@ -206,7 +250,12 @@ export default function App() {
   return (
     <div className="min-h-screen text-[#1a1a1a] font-sans selection:bg-cyan-500/30">
       <Toaster position="top-right" theme="light" richColors />
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      <SettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)} 
+        isEmailConnected={isEmailConnected}
+        onConnectEmail={handleConnectEmail}
+      />
       <AddAssetModal 
         isOpen={isAddAssetOpen} 
         onClose={() => setIsAddAssetOpen(false)} 
@@ -263,8 +312,14 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-white border border-black/5 shadow-sm flex items-center justify-center text-xs font-bold text-black/60">
+            <div 
+              className="w-10 h-10 rounded-full bg-white border border-black/5 shadow-sm flex items-center justify-center text-xs font-bold text-black/60 cursor-help group relative"
+              title="Jane Doe (Lead Producer)"
+            >
               JD
+              <div className="absolute top-full mt-2 right-0 bg-black text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                Jane Doe (Lead Producer)
+              </div>
             </div>
           </div>
         </div>
@@ -283,11 +338,89 @@ export default function App() {
               {currentView === "Dashboard" ? "Project Workspace" : currentView}
             </p>
             <h1 className="text-5xl md:text-6xl font-bold tracking-tight text-black">
-              {currentView === "Dashboard" ? MOCK_PROJECT.title : `Manage ${currentView}`}
+              {currentView === "Dashboard" ? projectTitle : `Manage ${currentView}`}
             </h1>
           </motion.div>
           
-          <div className="flex gap-4">
+          <div className="flex gap-4 items-end">
+            {currentView === "Dashboard" && (
+              <div className="relative">
+                <Button 
+                  variant="outline" 
+                  className={`bg-white border-black/5 hover:bg-black/5 text-black h-12 px-6 rounded-xl shadow-sm font-bold transition-all ${isProjectSwitcherOpen ? 'ring-2 ring-cyan-500/20 border-cyan-500/50' : ''}`}
+                  onClick={() => setIsProjectSwitcherOpen(!isProjectSwitcherOpen)}
+                >
+                  <Archive className="w-4 h-4 mr-2 text-cyan-600" />
+                  Switch Project
+                </Button>
+
+                <AnimatePresence>
+                  {isProjectSwitcherOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setIsProjectSwitcherOpen(false)} />
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        className="absolute top-full right-0 mt-4 w-72 bg-white border border-black/5 rounded-2xl shadow-2xl z-50 p-2 overflow-hidden"
+                      >
+                        <div className="p-3 text-xs font-bold text-black/30 uppercase tracking-widest border-b border-black/5 mb-2">Your Workspaces</div>
+                        <div className="space-y-1">
+                          <button 
+                            onClick={() => {
+                              setProjectTitle(MOCK_PROJECT.title);
+                              setIsProjectSwitcherOpen(false);
+                            }}
+                            className={`w-full text-left p-3 rounded-xl font-bold text-sm flex items-center justify-between transition-colors ${projectTitle === MOCK_PROJECT.title ? 'bg-black/5 text-black' : 'hover:bg-black/5 text-black/40 hover:text-black'}`}
+                          >
+                            {MOCK_PROJECT.title}
+                            {projectTitle === MOCK_PROJECT.title && <div className="w-2 h-2 bg-cyan-500 rounded-full" />}
+                          </button>
+                          <button 
+                            onClick={() => {
+                              setProjectTitle("The Great Unknown (Doc)");
+                              setIsProjectSwitcherOpen(false);
+                              toast.success("Switched to 'The Great Unknown'");
+                            }}
+                            className={`w-full text-left p-3 rounded-xl font-bold text-sm flex items-center justify-between transition-colors ${projectTitle === "The Great Unknown (Doc)" ? 'bg-black/5 text-black' : 'hover:bg-black/5 text-black/40 hover:text-black'}`}
+                          >
+                            The Great Unknown (Doc)
+                            {projectTitle === "The Great Unknown (Doc)" && <div className="w-2 h-2 bg-cyan-500 rounded-full" />}
+                          </button>
+                          <button 
+                            onClick={() => {
+                              setProjectTitle("Urban Legends S2");
+                              setIsProjectSwitcherOpen(false);
+                              toast.success("Switched to 'Urban Legends S2'");
+                            }}
+                            className={`w-full text-left p-3 rounded-xl font-bold text-sm flex items-center justify-between transition-colors ${projectTitle === "Urban Legends S2" ? 'bg-black/5 text-black' : 'hover:bg-black/5 text-black/40 hover:text-black'}`}
+                          >
+                            Urban Legends S2
+                            {projectTitle === "Urban Legends S2" && <div className="w-2 h-2 bg-cyan-500 rounded-full" />}
+                          </button>
+                        </div>
+                        <div className="p-3 border-t border-black/5 mt-2">
+                          <button 
+                            onClick={() => {
+                              const name = window.prompt("Enter new workspace name:");
+                              if (name) {
+                                setProjectTitle(name);
+                                setAssets([]); // Clear assets for new project
+                                toast.success(`Created new workspace: ${name}`);
+                              }
+                              setIsProjectSwitcherOpen(false);
+                            }}
+                            className="text-cyan-600 text-xs font-bold flex items-center gap-2 hover:text-cyan-700 transition-colors w-full"
+                          >
+                            <Plus className="w-3 h-3" /> Create New Workspace
+                          </button>
+                        </div>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
             <Button 
               variant="outline" 
               className="bg-white border-black/5 hover:bg-black/5 text-black h-12 px-6 rounded-xl shadow-sm"

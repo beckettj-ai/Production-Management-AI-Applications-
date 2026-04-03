@@ -4,7 +4,7 @@ import AssetTable from "./AssetTable";
 import { ShieldAlert, Clock, CheckCircle2 } from "lucide-react";
 import { motion } from "motion/react";
 
-export default function ClearanceView({ assets, isEmailConnected }: { assets: Asset[], isEmailConnected?: boolean }) {
+export default function ClearanceView({ assets, isEmailConnected, onUpdateAsset }: { assets: Asset[], isEmailConnected?: boolean, onUpdateAsset?: (asset: Asset) => void }) {
   const pendingAssets = assets.filter(a => a.workflow_stage === "Pending Response" || a.workflow_stage === "Searching");
   const clearedAssets = assets.filter(a => a.workflow_stage === "Cleared");
   const rejectedAssets = assets.filter(a => a.workflow_stage === "Rejected");
@@ -66,7 +66,7 @@ export default function ClearanceView({ assets, isEmailConnected }: { assets: As
           <p className="text-sm text-black/40 mt-1">Manage rights and permissions for all project assets</p>
         </div>
         <div className="p-10">
-          <AssetTable assets={assets} isEmailConnected={isEmailConnected} />
+          <AssetTable assets={assets} isEmailConnected={isEmailConnected} onUpdateAsset={onUpdateAsset} />
         </div>
       </div>
     </div>
