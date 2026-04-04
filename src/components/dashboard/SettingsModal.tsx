@@ -136,17 +136,17 @@ export default function SettingsModal({
               <section>
                 <h4 className="text-sm font-medium text-white/80 mb-4 flex items-center gap-2">
                   <Mail className="w-4 h-4 text-cyan-400" />
-                  Email Integration
+                  Google Integration
                 </h4>
                 
                 <div className={`bg-white/5 border border-white/10 rounded-xl p-4 space-y-4 ${isEmailConnected ? 'border-green-500/20' : ''}`}>
                   <div className="flex justify-between items-center">
                     <div>
-                      <p className="text-sm font-medium text-white/90">Google Workspace</p>
-                      <p className="text-xs text-white/40 mt-1">
+                      <p className="text-sm font-medium text-white/90">Workspace & Drive</p>
+                      <p className="text-xs text-white/40 mt-1 leading-relaxed">
                         {isEmailConnected 
-                          ? "Connected to searching4banjo@gmail.com" 
-                          : "Not connected."}
+                          ? "Connected to searching4banjo@gmail.com. Files are stored in your Google Drive." 
+                          : "Connect to send emails and store project files in your Google Drive."}
                       </p>
                     </div>
                     {isEmailConnected && (
@@ -161,7 +161,7 @@ export default function SettingsModal({
                       onClick={onConnectEmail}
                       className="w-full bg-white text-black hover:bg-white/90"
                     >
-                      Connect Gmail
+                      Connect Google Account
                     </Button>
                   ) : (
                     <Button 
